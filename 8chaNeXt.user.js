@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Pashe's 8chaNeXt
-// @version     0.0.1452042420
+// @version     0.0.1452043750
 // @description Small userscript to improve Infinity Next
 // @icon        https://cdn.rawgit.com/Pashe/8chanX/2-0/images/logo.svg
 // @namespace   https://github.com/Pashe/8chaNeXt/tree/2-0
@@ -70,6 +70,7 @@ try {
 	////////////////
 	var settings = {
 		"imageHover": true,
+		"parseTimestampImage": true,
 	};
 	
 	function getSetting(key) {
@@ -208,6 +209,35 @@ try {
 		});
 	}
 	
+	function initParseTimestampImage() { //Pashe, WTFPL
+		if (!getSetting("parseTimestampImage")) {return;}
+		try {
+			var minTimestamp = new Date(1985,1).valueOf();
+			var maxTimestamp = Date.now()+(24*60*60*1000);
+			
+			$("span.filename-cleartext").each(function() {
+				var $this = $(this);
+				var filename = $this.text();
+				
+				if (!filename.match(/^([0-9]{9,13})[^a-zA-Z0-9]?.*$/)) {return;}
+				var timestamp = parseInt(filename.match(/^([0-9]{9,13})[^a-zA-Z0-9]?.*$/)[1]);
+				
+				if (timestamp < minTimestamp) {timestamp *= 1000;}
+				if ((timestamp < minTimestamp) || (timestamp > maxTimestamp)) {return;}
+				
+				var fileDate = new Date(timestamp);
+				
+				var fileTimeElement = $('<span class="chx_PTIStamp"></span>');
+				fileTimeElement.attr("title", fileDate.toGMTString());
+				fileTimeElement.attr("data-timestamp", timestamp);
+				fileTimeElement.attr("data-isotime", fileDate.toISOString());
+				fileTimeElement.text(" (" + $.timeago(timestamp) + ")");
+				fileTimeElement.css({"font-size": "x-small"});
+				fileTimeElement.appendTo($this.parent());
+			});
+		} catch (e) {}
+	}
+	
 	function initImageHover() { //Pashe, influenced by tux, et al, WTFPL
 		if (!(getSetting("imageHover") || getSetting("catalogImageHover"))) {return;}
 		if (!getSetting("catalogImageHover") && isOnCatalog()) {return;}
@@ -239,7 +269,7 @@ try {
 		//initMascot();
 		//initRevealImageSpoilers();
 		//initRISLinks();
-		//initParseTimestampImage();
+		initParseTimestampImage();
 		//initNotifications();
 		//initFlagIcons();
 		//initKeyboardShortcuts();
