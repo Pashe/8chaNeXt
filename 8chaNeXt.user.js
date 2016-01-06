@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Pashe's 8chaNeXt
-// @version     0.0.1452040250
+// @version     0.0.1452042420
 // @description Small userscript to improve Infinity Next
 // @icon        https://cdn.rawgit.com/Pashe/8chanX/2-0/images/logo.svg
 // @namespace   https://github.com/Pashe/8chaNeXt/tree/2-0
@@ -65,12 +65,125 @@ function chxErrorHandler(e, section) {
 }
 
 try {
-	var settings = {};
+	////////////////
+	//SETTINGS
+	////////////////
+	var settings = {
+		"imageHover": true,
+	};
 	
 	function getSetting(key) {
 		if (settings.hasOwnProperty(key)) {
 			return settings[key];
 		} else {return false;}
+	}
+	
+	////////////////
+	//GENERAL FUNCTIONS
+	////////////////
+	function isOnCatalog() {
+		return !!location.pathname.match("catalog$"); //Fuck it
+	}
+
+	function isOnThread() {
+		return !location.pathname.match("catalog$");
+	}
+
+	function getFileExtension(filename) { //Pashe, WTFPL
+		if (filename.match(/\.([a-z0-9]+)(&loop.*)?$/i) !== null) {
+			return filename.match(/\.([a-z0-9]+)(&loop.*)?$/i)[1];
+		} else if (filename.match(/https?:\/\/(www\.)?youtube.com/)) {
+			return 'Youtube';
+		} else {
+			return sprintf("unknown: %s", filename);
+		}
+	}
+
+	function isImage(fileExtension) { //Pashe, WTFPL
+		return ($.inArray(fileExtension, ["jpg", "jpeg", "gif", "png"]) !== -1);
+	}
+
+	function isVideo(fileExtension) { //Pashe, WTFPL
+		return ($.inArray(fileExtension, ["webm", "mp4"]) !== -1);
+	}
+
+	////////////////
+	//IMAGE HOVER
+	////////////////
+	function imageHoverStart(e) { //Pashe, anonish, WTFPL
+		var hoverImage = $("#chx_hoverImage");
+		
+		if (hoverImage.length) {
+			if (getSetting("imageHoverFollowCursor")) {
+				var scrollTop = $(window).scrollTop();
+				var imgY = e.pageY;
+				var imgTop = imgY;
+				var windowWidth = $(window).width();
+				var imgWidth = hoverImage.width() + e.pageX;
+				
+				if (imgY < scrollTop + 15) {
+					imgTop = scrollTop;
+				} else if (imgY > scrollTop + $(window).height() - hoverImage.height() - 15) {
+					imgTop = scrollTop + $(window).height() - hoverImage.height() - 15;
+				}
+				
+				if (imgWidth > windowWidth) {
+					hoverImage.css({
+						'left': (e.pageX + (windowWidth - imgWidth)),
+						'top' : imgTop,
+					});
+				} else {
+					hoverImage.css({
+						'left': e.pageX,
+						'top' : imgTop,
+					});
+				}
+				
+				hoverImage.appendTo($("body"));
+			}
+			
+			return;
+		}
+		
+		var $this = $(this);
+		
+		var fullUrl;
+		if (!isOnCatalog()) {
+			fullUrl = $this.parent().parent().parent().attr("data-download-url"); //I don't remember how to do this properly
+		} else {
+			fullUrl = $this.attr("src").replace("/thumb/", "/");
+		}
+		
+		if (isVideo(getFileExtension(fullUrl))) {return;}
+		
+		hoverImage = $(sprintf('<img id="chx_hoverImage" src="%s" />', fullUrl));
+		if (getSetting("imageHoverFollowCursor")) {
+			hoverImage.css({
+				"position"      : "absolute",
+				"z-index"       : 101,
+				"pointer-events": "none",
+				"max-width"     : $(window).width(),
+				"max-height"    : $(window).height(),
+				'left'          : e.pageX,
+				'top'           : imgTop,
+			});
+		} else {
+			hoverImage.css({
+				"position"      : "fixed",
+				"top"           : 0,
+				"right"         : 0,
+				"z-index"       : 101,
+				"pointer-events": "none",
+				"max-width"     : "100%",
+				"max-height"    : "100%",
+			});
+		}
+		hoverImage.appendTo($("body"));
+		if (isOnThread()) {$this.css("cursor", "none");}
+	}
+
+	function imageHoverEnd() { //Pashe, WTFPL
+		$("#chx_hoverImage").remove();
 	}
 	
 	////////////////
@@ -95,6 +208,26 @@ try {
 		});
 	}
 	
+	function initImageHover() { //Pashe, influenced by tux, et al, WTFPL
+		if (!(getSetting("imageHover") || getSetting("catalogImageHover"))) {return;}
+		if (!getSetting("catalogImageHover") && isOnCatalog()) {return;}
+		
+		var selectors = [];
+		
+		if (getSetting("imageHover")) {selectors.push("img.attachment-img");}
+		
+		$(selectors.join(", ")).each(function () {
+			var $this = $(this);
+			
+			$this.on("mousemove", imageHoverStart);
+			$this.on("mouseout",  imageHoverEnd);
+			$this.on("click",     imageHoverEnd);
+		});
+	}
+	
+	////////////////
+	//INIT CALLS
+	////////////////
 	$(unsafeWindow.document).ready(function() { try {
 		//initSettings();
 		//initBRLocalStorage();
@@ -114,5 +247,6 @@ try {
 		//initClearLocalStorage();
 		//initClearChxSettings();
 		//initFavicon();
+		initImageHover();
 	} catch(e) {chxErrorHandler(e, "ready");}});
 } catch(e) {chxErrorHandler(e, "global");}
